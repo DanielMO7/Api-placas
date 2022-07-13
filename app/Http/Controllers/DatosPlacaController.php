@@ -11,8 +11,6 @@ class DatosPlacaController extends Controller
     {
         $objeto_consulta = DatosPlaca::datos_placa($request->placa);
 
-        return response()->json([
-            'data' => $objeto_consulta,
-        ]);
+        return json_encode($objeto_consulta);
     }
 }
