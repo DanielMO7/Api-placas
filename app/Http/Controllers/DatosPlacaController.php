@@ -13,4 +13,10 @@ class DatosPlacaController extends Controller
 
         return json_encode($objeto_consulta);
     }
+    public function InsertarDatosPLaca(Request $request)
+    {
+        $objeto_consulta = DatosPlaca::insertar_datos_placa($request);
+        
+        return $objeto_consulta;
+    }
 }
