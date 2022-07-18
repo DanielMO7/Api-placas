@@ -73,86 +73,184 @@ class DatosPlaca extends Model
 
     public static function insertar_datos_placa_aceite($request)
     {
-        try{
-            $sql_validacion_placa = "SELECT COUNT(*) AS datos FROM servitek_vehiculo WHERE servitek_vehiculo.numero_placa = ?";
+        // El try evalua si hay algun error en la consulta en general.
+        try {
 
-           $validacion_placa = DB::connection()->select(DB::raw($sql_validacion_placa), [$request->placa]);
+            // Buscamos si el id de la placa ya se encuentra registrada.
+            $sql_validacion_placa = "SELECT COUNT(*) AS numero_registros FROM servitek_vehiculo WHERE servitek_vehiculo.numero_placa = ?";
 
-            foreach($validacion_placa as $dato){
-                $contenido_db = $dato->datos;
+            $validacion_placa = DB::connection()->select(DB::raw($sql_validacion_placa), [$request->placa]);
+
+            //Como la validacion retorna un objeto, lo recorremos con un foreach y sacamos el contenido del count.
+            foreach ($validacion_placa as $dato) {
+                $contenido_db = $dato->numero_registros;
             }
             // Validamos si la palca esta registrada, si no es asi se crea un nuevo registro.
-            if( $contenido_db > 0){
-                try{
+            if ($contenido_db > 0) {
+                // Como el usuario ya esta registrado creamos un nuevo cambio en la database.
+                try {
+                    //Traemos el id del usuario.
                     $sql_traer_id = "SELECT servitek_vehiculo.id_vehiculo FROM servitek_vehiculo WHERE servitek_vehiculo.numero_placa = ?";
-                    $obj_id_placa = DB::connection()->select(DB::raw($sql_traer_id),[$request->placa]);
-                    
-                    foreach($obj_id_placa as $datos){
+                    $obj_id_placa = DB::connection()->select(DB::raw($sql_traer_id), [$request->placa]);
+
+                    foreach ($obj_id_placa as $datos) {
                         $id_placa = $datos->id_vehiculo;
                     }
-
-                    $sql_insertar_cambio = "INSERT 
-                            INTO servitek_cambio_aceite (
-                                id_vehiculo, 
-                                id_marca_aceite, 
-                                tipo_servicio, 
-                                kilometraje_actual, 
-                                kilometraje_cambio_sugerido,
-                                fecha_registro,
-                                fecha_cambio_aceite
-                                )
-                            VALUES (?,?,?,?,?,?,?)";
-        
-                        $kilometraje_cambio_sugerido = $request->kilometraje * 2;
-                        
+                    
+                    // Validamos el tipo de cambio, si es de aceite o de llanta.
+                    if($request->tipo_cambio == 1){
+                        $sql_insertar_cambio = "INSERT 
+                                INTO servitek_cambio_aceite (
+                                    id_vehiculo, 
+                                    id_marca_aceite, 
+                                    tipo_servicio, 
+                                    kilometraje_actual, 
+                                    kilometraje_cambio_sugerido,
+                                    fecha_registro,
+                                    fecha_cambio_aceite
+                                    )
+                                VALUES (?,?,?,?,?,?,?)";
+    
+                        // El kilometraje recomendado kilometraje actual mas 6000 km.
+                        $kilometraje_cambio_sugerido = $request->kilometraje + 6000;
+    
+                        // Creamos una fecha de registro.
                         $date = date_create();
                         $cadena_fecha_actual = date_format($date, 'Y-m-d H:i:s');
-                        
-                        $inyeccion_aceite = DB::connection()->select(DB::raw($sql_insertar_cambio),[
-                            $id_placa, 
+    
+                        $inyeccion_aceite = DB::connection()->select(DB::raw($sql_insertar_cambio), [
+                            $id_placa,
                             $request->marca_aceite,
                             $request->tipo_cambio,
                             $request->kilometraje,
                             $kilometraje_cambio_sugerido,
                             $cadena_fecha_actual, $cadena_fecha_actual
                         ]);
-                        return response()->json([
-                            "status" => 1,
-                            "msg" => "La placa ha sido registrada",
+                    }else{
+                        $sql_insertar_cambio = "INSERT 
+                                INTO servitek_cambio_llanta (
+                                    id_vehiculo, 
+                                    id_marca_llanta, 
+                                    tipo_servicio, 
+                                    kilometraje_actual, 
+                                    kilometraje_cambio_sugerido,
+                                    fecha_registro,
+                                    fecha_cambio_llanta
+                                    )
+                                VALUES (?,?,?,?,?,?,?)";
+    
+                        // El kilometraje recomendado kilometraje actual mas 6000 km.
+                        $kilometraje_cambio_sugerido = $request->kilometraje + 6000;
+    
+                        // Creamos una fecha de registro.
+                        $date = date_create();
+                        $cadena_fecha_actual = date_format($date, 'Y-m-d H:i:s');
+    
+                        $inyeccion_llanta = DB::connection()->select(DB::raw($sql_insertar_cambio), [
+                            $id_placa,
+                            $request->marca_llanta,
+                            $request->tipo_cambio,
+                            $request->kilometraje,
+                            $kilometraje_cambio_sugerido,
+                            $cadena_fecha_actual, $cadena_fecha_actual
                         ]);
-                    
-                    }catch(Throwable $e){
-                            return 'Error al buscar id e insertar placa' . $e . 'FECHA: '. $cadena_fecha_actual;
-                    };
-            }else{
+                    }
+
+                    return response()->json([
+                        "status" => 1,
+                        "msg" => "El cambio ha sido registrado correctamente.",
+                    ]);
+                } catch (Throwable $e) {
+                    return 'Error al buscar id e insertar placa ' . $e;
+                };
+            } else {
                 //Se cre un nuevo vehiculo y se insertan los datos.
-                try{
-                    try{
+                try {
+                        // Insertamos un nuevo vehiculo.
                         $sql_insertar_vehiculo = "INSERT INTO servitek_vehiculo (numero_placa, tipo_vehiculo) 
                             VALUES (?, ?)";
-        
+
                         $registro = DB::connection()->select(DB::raw($sql_insertar_vehiculo), [$request->placa, $request->tipo_vehiculo]);
-                            
-                    }catch(Throwable $e){
-                        return 'Error al insertar vehiculo' . $e;
-                    };
-                }catch (Throwable $e) {
-                    return 'Error en validacion'.$fecha;
+
+                        // Buscamos el id del vehiculo.                        
+                        $sql_traer_id = "SELECT servitek_vehiculo.id_vehiculo FROM servitek_vehiculo WHERE servitek_vehiculo.numero_placa = ?";
+
+                        $obj_id_placa = DB::connection()->select(DB::raw($sql_traer_id), [$request->placa]);
+
+                        foreach ($obj_id_placa as $datos) {
+                            $id_placa = $datos->id_vehiculo;
+                        }  
+
+                        if($request->tipo_cambio == 1){
+                            $sql_insertar_cambio = "INSERT 
+                                INTO servitek_cambio_aceite (
+                                    id_vehiculo, 
+                                    id_marca_aceite, 
+                                    tipo_servicio, 
+                                    kilometraje_actual, 
+                                    kilometraje_cambio_sugerido,
+                                    fecha_registro,
+                                    fecha_cambio_aceite
+                                    )
+                                VALUES (?,?,?,?,?,?,?)";
+    
+                            $kilometraje_cambio_sugerido = $request->kilometraje + 6000;
+    
+                            $date = date_create();
+                            $cadena_fecha_actual = date_format($date, 'Y-m-d H:i:s');
+    
+                            $inyeccion_aceite = DB::connection()->select(DB::raw($sql_insertar_cambio), [
+                                $id_placa,
+                                $request->marca_aceite,
+                                $request->tipo_cambio,
+                                $request->kilometraje,
+                                $kilometraje_cambio_sugerido,
+                                $cadena_fecha_actual, $cadena_fecha_actual
+                            ]);
+                        }else{
+                            $sql_insertar_cambio = "INSERT 
+                                INTO servitek_cambio_llanta (
+                                    id_vehiculo, 
+                                    id_marca_llanta, 
+                                    tipo_servicio, 
+                                    kilometraje_actual, 
+                                    kilometraje_cambio_sugerido,
+                                    fecha_registro,
+                                    fecha_cambio_llanta
+                                    )
+                                VALUES (?,?,?,?,?,?,?)";
+    
+                            $kilometraje_cambio_sugerido = $request->kilometraje + 6000;
+    
+                            $date = date_create();
+                            $cadena_fecha_actual = date_format($date, 'Y-m-d H:i:s');
+    
+                            $inyeccion_llanta = DB::connection()->select(DB::raw($sql_insertar_cambio), [
+                                $id_placa,
+                                $request->marca_llanta,
+                                $request->tipo_cambio,
+                                $request->kilometraje,
+                                $kilometraje_cambio_sugerido,
+                                $cadena_fecha_actual, $cadena_fecha_actual
+                            ]);
+
+                        }
+
+                        return response()->json([
+                            "status" => 1,
+                            "msg" => "Se creo el usuario y se registro la placa",
+                        ]);
+                } catch (Throwable $e) {
+                    return 'Error al crear e insertar el validacion  ' . $e;
                 }
             };
-        }catch (Throwable $e) {
-                    return 'Error en validacion'.$e;
-                }
-      
+        } catch (Throwable $e) {
+            return 'Error en validacion' . $e;
+        }
     }
-    
+
     public static function insertar_datos_placa_llanta($request)
     {
-        try {
-            $sql_insertar_datos_placa = 'INSERT INTO usuarios (nombre_usuario,email,documento,contrasena,rol)
-            VALUES (:nombre_usuario,:email,:documento,:contrasena,:rol)';
-        } catch (Throwable $e) {
-            return 'Error en database' . $e;
-        }
+        return 'modelo de cambio de llanta.';
     }
 }

@@ -15,15 +15,8 @@ class DatosPlacaController extends Controller
     }
     public function InsertarDatosPLaca(Request $request)
     {
-        if ($request->tipo_cambio == 1) {
-            $objeto_consulta = DatosPlaca::insertar_datos_placa_aceite($request);
+        $objeto_consulta = DatosPlaca::insertar_datos_placa_aceite($request);
             
-            return $objeto_consulta;
-
-        } else {
-            $objeto_consulta = DatosPlaca::insertar_datos_placa_llanta($request);
-
-            return $objeto_consulta;
-        }
+        return $objeto_consulta;
     }
 }
